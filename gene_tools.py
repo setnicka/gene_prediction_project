@@ -103,9 +103,13 @@ def _GetORFwithOffset(DNA, offset, reverse=False):
 	# In reverse search rotate direction (index 0 = the last one)
 	if reverse:
 		for item in positions:
-			(item[0], item[1]) = (len(DNA) - item[1] - 1, len(DNA) - item[0] - 1)
+			item = ReverseIndex(len(DNA), item)
 
 	return positions
+
+
+def ReverseIndex(length, index):
+	return (length - index[1] - 1, length - index[0] - 1)
 
 
 def DnaComplement(dna):

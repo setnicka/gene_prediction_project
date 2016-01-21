@@ -72,7 +72,7 @@ def Test(method, params, sequences):
 		DNA = list(fasta.values())[0]
 		ORF = gene_tools.GetORF(DNA)
 
-		found_genes = method(fasta, ORF, *params)
+		found_genes = method(DNA, ORF, *params)
 
 		print(seq.ljust(35), end="\t")
 		print("%d\t%d\t%d" % Evaluate(real_genes, found_genes))
@@ -84,4 +84,86 @@ def LengthPrediction(fasta, ORF, treshold):
 	return [gene for gene in ORF if gene[1] - gene[0] >= treshold]
 
 
-Test(LengthPrediction, (100, ), testing_sequences)
+# Test(LengthPrediction, (100, ), testing_sequences)
+
+################################################################################
+
+model_pre = 15  # To catch Pribnow and Gilbert box
+model_post = 25  # To catch ribosomal binding site
+statistic_treshold = 0.295 ** (model_pre + model_post)
+length_treshold = 150
+
+
+def StatisticalPredictionTrain(fasta, real_genes, model=None):
+	if model is None:
+		model = {}
+		for i in range(-model_pre, model_post):
+			model[i] = {'A': 0, 'C': 0, 'T': 0, 'G': 0, 'total': 0}
+
+	complement_fasta = gene_tools.DnaComplement(fasta)
+
+	for gene in real_genes:
+		for i in range(-model_pre, model_post):
+			if gene[2]:
+				index = gene[1] - i
+			else:
+				index = gene[0] + i
+
+			if index > len(fasta) or index < 0:
+				continue
+			else:
+				if gene[2]:
+					base = complement_fasta[index]
+				else:
+					base = fasta[index]
+				model[i][base] += 1
+				model[i]['total'] += 1
+	return model
+
+
+def StatisticalPrediction(fasta, ORF, model, statistic_treshold, length_treshold):
+	ORF = [gene for gene in ORF if gene[1] - gene[0] >= length_treshold]
+
+	complement_fasta = gene_tools.DnaComplement(fasta)
+
+	output = []
+	# For each gene compute score
+	for gene in ORF:
+		score = 1.0
+		for i in range(-model_pre, model_post):
+			if gene[2]:
+				index = gene[1] - i
+			else:
+				index = gene[0] + i
+
+			if index > len(fasta) or index < 0:
+				continue
+			else:
+				if gene[2]:
+					base = complement_fasta[index]
+				else:
+					base = fasta[index]
+
+				if base in ('A', 'C', 'T', 'G'):
+					score *= (model[i][base] / model[i]['total'])
+				else:
+					score *= (min(model[i].values()) / model[i]['total'])
+		# print(gene, score)
+		if score > statistic_treshold:
+			output.append(gene)
+	return output
+
+
+model = None
+for seq in training_sequences:
+	real_genes = gene_tools.ReadGenes(sequences_dir + seq + ".gb.genes")
+	fasta = gene_tools.ReadFasta(sequences_dir + seq + ".fasta")
+	DNA = list(fasta.values())[0]
+
+	model = StatisticalPredictionTrain(DNA, real_genes, model)
+
+
+Test(StatisticalPrediction, (model, statistic_treshold, length_treshold), sequences)
+
+
+################################################################################
