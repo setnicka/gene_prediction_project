@@ -4,8 +4,65 @@ start_codons = ('ATG', 'GTG', 'TTG')
 stop_codons = ('TAA', 'TAG', 'TGA')
 
 
+# Return a dictionary of sequences from FASTA file with the name <filename>.
+# The keys are the sequence identifiers, the values are the sequences
+# stored as strings.
+def ReadFasta(filename, verbose=False):
+	dictionary = {}
+	identifier = ""
+	dna = ""
+
+	def Save():
+		if dna and identifier:
+			dictionary[identifier] = dna
+			if verbose:
+				print("The sequence %s with %d characters was read." % (identifier, len(dna)))
+
+	inputFile = open(filename, 'rU')
+	try:
+		for line in inputFile:
+			if line[0] == '>':
+				Save()
+				identifier = line.split()[0]
+				dna = ""
+			else:
+				dna += line.replace('\n', '')
+		Save()
+	finally:
+		inputFile.close()
+	return dictionary
+
+
+# Parse genes file and return sequence of genes:
+# format: [
+# 	[ startIndex, endIndex, complement = False ]
+# ]
+#
+# WARNING: Internally it uses arrays indexed from 0, but in gene software
+# there are used positions indexed from 1 (beware when input/output gene positions)
+# (so when reading sub 1 from each index)
+def ReadGenes(filename):
+	genes = []
+
+	inputFile = open(filename, 'rU')
+	try:
+		for line in inputFile:
+			line = line.strip()
+			complement = False
+			if line.startswith("complement"):
+				complement = True
+				line = line[11:-1]  # Remove the word "complement(" and ending ")"
+			start, end = line.split("..")
+			start = int(start.replace(">", "").replace("<", ""))
+			end = int(end.replace(">", "").replace("<", ""))
+			genes.append([start - 1, end - 1, complement])
+	finally:
+		inputFile.close()
+	return genes
+
+
 # Function to get all ORF (open reading frames)
-# -> format: [
+# format: [
 # 	[ startIndex, endIndex, complement = False ]
 # ]
 #
@@ -27,21 +84,21 @@ def _GetORFwithOffset(DNA, offset, reverse=False):
 	if reverse:
 		DNA = DnaReverseComplement(DNA)
 
-	started = False
-	start = 0
+	starts = []
 	positions = []
 	for i in range(offset, len(DNA) - 2, 3):
-		if not started:
-			if DNA[i:i + 3] in start_codons:
-				started = True
-				start = i
-		else:
-			if DNA[i:i + 3] in stop_codons:
+		if DNA[i:i + 3] in start_codons:
+			starts.append(i)
+			start = i
+
+		if len(starts) and DNA[i:i + 3] in stop_codons:
+			for start in starts:
 				positions.append([start, i + 2, reverse])
-				started = False
+				starts = []
 	# Append last open segment
-	if started:
-		positions.append([start, len(DNA) - 1, reverse])
+	if len(starts):
+		for start in starts:
+			positions.append([start, len(DNA) - 1, reverse])
 
 	# In reverse search rotate direction (index 0 = the last one)
 	if reverse:
