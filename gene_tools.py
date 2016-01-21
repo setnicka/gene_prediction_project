@@ -1,7 +1,7 @@
 #!/usr/bin/python3
 
-start_codon = 'ATG'
-stop_codons = ['TAA', 'TAG', 'TGA']
+start_codons = ('ATG', 'GTG', 'TTG')
+stop_codons = ('TAA', 'TAG', 'TGA')
 
 
 # Function to get all ORF (open reading frames)
@@ -32,7 +32,7 @@ def _GetORFwithOffset(DNA, offset, reverse=False):
 	positions = []
 	for i in range(offset, len(DNA) - 2, 3):
 		if not started:
-			if DNA[i:i + 3] == start_codon:
+			if DNA[i:i + 3] in start_codons:
 				started = True
 				start = i
 		else:
