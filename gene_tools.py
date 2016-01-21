@@ -1,29 +1,29 @@
 #!/usr/bin/python3
 
-# Functions to get all ORF (open reading frames)
+start_codon = 'ATG'
+stop_codons = ['TAA', 'TAG', 'TGA']
+
+
+# Function to get all ORF (open reading frames)
 # -> format: [
 # 	[ startIndex, endIndex, complement = False ]
 # ]
 #
 # WARNING: Internally it uses arrays indexed from 0, but in gene software
 # there are used positions indexed from 1 (beware when input/output gene positions)
-
-start_codon = 'ATG'
-stop_codons = ['TAA', 'TAG', 'TGA']
-
-
 def GetORF(DNA):
 	return(
-		GetORFwithOffset(DNA, 0)
-		+ GetORFwithOffset(DNA, 1)
-		+ GetORFwithOffset(DNA, 2)
-		+ GetORFwithOffset(DNA, 0, True)
-		+ GetORFwithOffset(DNA, 1, True)
-		+ GetORFwithOffset(DNA, 2, True)
+		_GetORFwithOffset(DNA, 0)
+		+ _GetORFwithOffset(DNA, 1)
+		+ _GetORFwithOffset(DNA, 2)
+		+ _GetORFwithOffset(DNA, 0, True)
+		+ _GetORFwithOffset(DNA, 1, True)
+		+ _GetORFwithOffset(DNA, 2, True)
 	)
 
 
-def GetORFwithOffset(DNA, offset, reverse=False):
+# Internal function to find ORF with given direction and offset
+def _GetORFwithOffset(DNA, offset, reverse=False):
 	if reverse:
 		DNA = DnaReverseComplement(DNA)
 
@@ -31,7 +31,6 @@ def GetORFwithOffset(DNA, offset, reverse=False):
 	start = 0
 	positions = []
 	for i in range(offset, len(DNA) - 2, 3):
-		print(i, DNA[i:i + 3])
 		if not started:
 			if DNA[i:i + 3] == start_codon:
 				started = True
@@ -42,7 +41,13 @@ def GetORFwithOffset(DNA, offset, reverse=False):
 				started = False
 	# Append last open segment
 	if started:
-		positions.append([start, len(DNA), reverse])
+		positions.append([start, len(DNA) - 1, reverse])
+
+	# In reverse search rotate direction (index 0 = the last one)
+	if reverse:
+		for item in positions:
+			(item[0], item[1]) = (len(DNA) - item[1] - 1, len(DNA) - item[0] - 1)
+
 	return positions
 
 
@@ -70,4 +75,5 @@ def DnaReverseComplement(dna):
 	return DnaComplement(DnaReverse(dna))
 
 
-print(GetORF("CTGCAGACGAAACCTCTTGATGTAGTTGGCCTGACACCGACAATAATGAAGACTACCGTCTTACTAACAC"))
+# print(GetORF("CTGCAGACGAAACCTCTTGATGTAGTTGGCCTGACACCGACAATAATGAAGACTACCGTCTTACTAACAC"))
+# print(GetORF(DnaReverseComplement("AAATGAA")))
