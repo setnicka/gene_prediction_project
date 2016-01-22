@@ -1,18 +1,12 @@
 #!/usr/bin/python3
 
-sequences_dir = "sequences/"
-training_sequences = [
-	"Bacteroides_fragilis_YCH46",
-	"Bacteroides_ovatus_strain_ATCC8483",
-	"Bacteroides_thetaiotaomicron_VPI5482"
-]
-testing_sequences = [
-	"Bacteroides_vulgatus_ATCC8482",
-	"Bacteroides_xylanisolvens_XB1A"
-]
-sequences = training_sequences + testing_sequences
+import math
 import operator
+from gene_settings import *
 import gene_tools
+
+import cg_islands
+import statistical_prediction
 
 
 # Some statistics:
@@ -84,86 +78,20 @@ def LengthPrediction(fasta, ORF, treshold):
 	return [gene for gene in ORF if gene[1] - gene[0] >= treshold]
 
 
-# Test(LengthPrediction, (100, ), testing_sequences)
+print("=====\nLength prediction:")
+Test(LengthPrediction, (150, ), sequences)
 
 ################################################################################
 
-model_pre = 15  # To catch Pribnow and Gilbert box
-model_post = 25  # To catch ribosomal binding site
-statistic_treshold = 0.295 ** (model_pre + model_post)
+statistic_treshold = 0.295 ** (statistical_prediction.model_pre + statistical_prediction.model_post)
 length_treshold = 150
 
-
-def StatisticalPredictionTrain(fasta, real_genes, model=None):
-	if model is None:
-		model = {}
-		for i in range(-model_pre, model_post):
-			model[i] = {'A': 0, 'C': 0, 'T': 0, 'G': 0, 'total': 0}
-
-	complement_fasta = gene_tools.DnaComplement(fasta)
-
-	for gene in real_genes:
-		for i in range(-model_pre, model_post):
-			if gene[2]:
-				index = gene[1] - i
-			else:
-				index = gene[0] + i
-
-			if index > len(fasta) or index < 0:
-				continue
-			else:
-				if gene[2]:
-					base = complement_fasta[index]
-				else:
-					base = fasta[index]
-				model[i][base] += 1
-				model[i]['total'] += 1
-	return model
-
-
-def StatisticalPrediction(fasta, ORF, model, statistic_treshold, length_treshold):
-	ORF = [gene for gene in ORF if gene[1] - gene[0] >= length_treshold]
-
-	complement_fasta = gene_tools.DnaComplement(fasta)
-
-	output = []
-	# For each gene compute score
-	for gene in ORF:
-		score = 1.0
-		for i in range(-model_pre, model_post):
-			if gene[2]:
-				index = gene[1] - i
-			else:
-				index = gene[0] + i
-
-			if index > len(fasta) or index < 0:
-				continue
-			else:
-				if gene[2]:
-					base = complement_fasta[index]
-				else:
-					base = fasta[index]
-
-				if base in ('A', 'C', 'T', 'G'):
-					score *= (model[i][base] / model[i]['total'])
-				else:
-					score *= (min(model[i].values()) / model[i]['total'])
-		# print(gene, score)
-		if score > statistic_treshold:
-			output.append(gene)
-	return output
-
-
-model = None
-for seq in training_sequences:
-	real_genes = gene_tools.ReadGenes(sequences_dir + seq + ".gb.genes")
-	fasta = gene_tools.ReadFasta(sequences_dir + seq + ".fasta")
-	DNA = list(fasta.values())[0]
-
-	model = StatisticalPredictionTrain(DNA, real_genes, model)
-
-
-Test(StatisticalPrediction, (model, statistic_treshold, length_treshold), sequences)
-
+print("=====\nStatistical prediction:")
+model = statistical_prediction.StatisticalPredictionTrain(training_sequences)
+Test(statistical_prediction.StatisticalPrediction, (model, statistic_treshold, length_treshold), sequences)
 
 ################################################################################
+
+print("=====\nCG islands prediction:")
+log_matrix = cg_islands.CGislandsPredictionTrain(training_sequences)
+Test(cg_islands.CGislandsPrediction, (log_matrix, 0.004, length_treshold), sequences)
