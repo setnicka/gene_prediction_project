@@ -32,7 +32,7 @@ def _StatisticalPredictionTrain(fasta, real_genes, model=None):
 			else:
 				index = gene[0] + i
 
-			if index > len(fasta) or index < 0:
+			if index >= len(fasta) or index < 0:
 				continue
 			else:
 				if gene[2]:
@@ -59,7 +59,7 @@ def StatisticalPrediction(fasta, ORF, model, statistic_treshold, length_treshold
 			else:
 				index = gene[0] + i
 
-			if index > len(fasta) or index < 0:
+			if index >= len(fasta) or index < 0:
 				continue
 			else:
 				if gene[2]:
